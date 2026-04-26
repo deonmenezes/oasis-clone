@@ -42,3 +42,5 @@ next-env.d.ts
 
 # omc plugin state
 .omc/
+
+.vercel

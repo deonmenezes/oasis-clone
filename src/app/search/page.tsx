@@ -16,14 +16,14 @@ type Item = {
 
 async function search(q: string): Promise<Item[]> {
   if (!q || q.length < 2) return [];
-  // Use trigram-indexed ILIKE on the generated `name` column.
-  const safe = q.replace(/[%_]/g, "");
-  const { data } = await supabase
-    .from("items")
-    .select("id, name, type, score, image, mirrored_image, data")
-    .ilike("name", `%${safe}%`)
-    .order("score", { ascending: false, nullsFirst: false })
-    .limit(48);
+  // Postgres RPC: trigram fuzzy match (handles "brta" → "Brita", "wter" → "Water")
+  // combined with ILIKE substring + score boost. ~50ms even at 429k rows because
+  // of the GIN trigram index on items.name.
+  const { data, error } = await supabase.rpc("search_items", { q, lim: 48 });
+  if (error) {
+    console.error("search_items RPC failed:", error);
+    return [];
+  }
   return (data ?? []) as Item[];
 }
 
